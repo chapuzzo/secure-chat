@@ -57,5 +57,3 @@ __END__
 <form>
   <input id='msg' placeholder='type message here...' />
 </form>
-
-
