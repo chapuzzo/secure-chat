@@ -1,5 +1,7 @@
 # coding: utf-8
 require 'sinatra'
+# require 'sinatra/streaming'
+
 set server: 'thin', connections: []
 
 get '/' do
@@ -10,7 +12,18 @@ end
 get '/stream', provides: 'text/event-stream' do
   stream :keep_open do |out|
     settings.connections << out
-    out.callback { settings.connections.delete(out) }
+    mytimer = EventMachine::PeriodicTimer.new(20) {
+      out << "\n"
+    }
+
+    out << "data: Bienvenid@\n\n"
+    puts settings.connections.count # added
+
+    out.callback { 
+        # puts %q(deleting by callback)
+        mytimer.cancel
+        settings.connections.delete(out) 
+    }
   end
 end
 
@@ -26,34 +39,47 @@ __END__
   <head> 
     <title>Super Simple Chat with Sinatra</title> 
     <meta charset="utf-8" />
-    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script> 
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
   </head> 
   <body><%= yield %></body>
 </html>
 
 @@ login
 <form action='/'>
-  <label for='user'>User Name:</label>
+  <label for='user'>nickname:</label>
   <input name='user' value='' />
-  <input type='submit' value="GO!" />
+  <input type='submit' value="Entra!" />
 </form>
 
 @@ chat
 <pre id='chat'></pre>
 
+
 <script>
   // reading
   var es = new EventSource('/stream');
-  es.onmessage = function(e) { $('#chat').append(e.data + "\n") };
-
-  // writing
-  $("form").live("submit", function(e) {
-    $.post('/', {msg: "<%= user %>: " + $('#msg').val()});
-    $('#msg').val(''); $('#msg').focus();
-    e.preventDefault();
+  es.onmessage = function(e) { 
+    console.log(e);
+    if (e.data != '')
+      $('#chat').append(e.data + "\n") 
+  };
+  $(document).ready(function(){
+    // writing
+    $("form").on("submit",function(e) {
+      console.log("sending");
+      var sent = {msg: "<%= user %>: " + $('#msg').val()};
+      console.log(sent);
+      $.post('/', sent);
+      $('#msg').val(''); 
+      $('#msg').focus();
+      e.preventDefault();
+      console.log("sent");
+      return false;
+    });
+    $('#msg').focus();
   });
 </script>
 
 <form>
-  <input id='msg' placeholder='type message here...' />
+  <input id='msg' placeholder='tu mensaje es ...' />
 </form>
